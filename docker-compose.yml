@@ -75,3 +75,23 @@ services:
       - '9000:9000'
     environment:
       KAFKA_BROKER_CONNECT: kafka:29092
+
+  jobmanager:
+    image: flink:1.17.1-scala_2.12
+    container_name: flink-jobmanager
+    ports:
+      - '8081:8081' # Flink UI
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+    command: jobmanager
+    depends_on:
+      - kafka
+
+  taskmanager:
+    image: flink:1.17.1-scala_2.12
+    container_name: flink-taskmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+    command: taskmanager
+    depends_on:
+      - jobmanager
