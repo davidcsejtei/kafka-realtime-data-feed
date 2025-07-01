@@ -3,24 +3,29 @@ version: '3.8'
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka:
-    image: confluentinc/cp-kafka:7.6.1
+    image: confluentinc/cp-kafka:7.5.3
     container_name: kafka
     hostname: kafka
     depends_on:
       - zookeeper
     ports:
-      - '9092:9092'
+      - '9092:9092' # Lokál gépről érkező kapcsolat
+      - '29092:29092' # Konténeren belüli kapcsolat
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # Belső és külső hallgatás
+      KAFKA_LISTENERS: PLAINTEXT_INTERNAL://0.0.0.0:29092,PLAINTEXT_EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://kafka:29092,PLAINTEXT_EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: 'true'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -29,22 +34,26 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: connect
     depends_on:
       - kafka
     ports:
       - '8083:8083'
     environment:
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
-      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
       CONNECT_REST_PORT: 8083
       CONNECT_GROUP_ID: 'datagen-group'
+
       CONNECT_CONFIG_STORAGE_TOPIC: 'connect-configs'
       CONNECT_OFFSET_STORAGE_TOPIC: 'connect-offsets'
       CONNECT_STATUS_STORAGE_TOPIC: 'connect-statuses'
+
       CONNECT_KEY_CONVERTER: 'org.apache.kafka.connect.storage.StringConverter'
       CONNECT_VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
       CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
+
       CONNECT_LOG4J_ROOT_LOGLEVEL: 'INFO'
       CONNECT_PLUGIN_PATH: '/usr/share/java,/usr/share/confluent-hub-components'
 
@@ -58,10 +67,11 @@ services:
 
   kafdrop:
     image: obsidiandynamics/kafdrop
+    container_name: kafdrop
     restart: always
+    depends_on:
+      - kafka
     ports:
       - '9000:9000'
     environment:
-      KAFKA_BROKER_CONNECT: kafka:9092
-    depends_on:
-      - kafka
+      KAFKA_BROKER_CONNECT: kafka:29092
