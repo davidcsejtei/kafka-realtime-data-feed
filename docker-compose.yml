@@ -76,31 +76,31 @@ services:
     networks:
       - flink-network
 
-  connector-init:
-    image: alpine:latest
-    container_name: connector-init
-    depends_on:
-      - connect
-    volumes:
-      - ./init:/init
-    working_dir: /init
-    entrypoint: /bin/sh
-    command:
-      - -c
-      - |
-        echo 'Waiting for Kafka Connect to be ready...';
-        apk add --no-cache curl > /dev/null;
-        until curl --fail --silent http://connect:8083/connectors; do
-          echo 'Kafka Connect not ready yet, retrying in 5s...';
-          sleep 5;
-        done;
-        echo 'Registering datagen connector...';
-        curl -X POST http://connect:8083/connectors \
-          -H 'Content-Type: application/json' \
-          -d @datagen-rocket.json;
-        echo 'Connector registered.';
-    networks:
-      - flink-network
+  # connector-init:
+  #   image: alpine:latest
+  #   container_name: connector-init
+  #   depends_on:
+  #     - connect
+  #   volumes:
+  #     - ./init:/init
+  #   working_dir: /init
+  #   entrypoint: /bin/sh
+  #   command:
+  #     - -c
+  #     - |
+  #       echo 'Waiting for Kafka Connect to be ready...';
+  #       apk add --no-cache curl > /dev/null;
+  #       until curl --fail --silent http://connect:8083/connectors; do
+  #         echo 'Kafka Connect not ready yet, retrying in 5s...';
+  #         sleep 5;
+  #       done;
+  #       echo 'Registering datagen connector...';
+  #       curl -X POST http://connect:8083/connectors \
+  #         -H 'Content-Type: application/json' \
+  #         -d @datagen-rocket.json;
+  #       echo 'Connector registered.';
+  #   networks:
+  #     - flink-network
 
 networks:
   flink-network:

@@ -3,10 +3,22 @@
   "config": {
     "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
     "kafka.topic": "rocket-telemetry",
-    "quickstart": "device_information",
+    "schema.string": "{\"type\":\"record\",\"name\":\"rocket_telemetry\",\"fields\":[{\"name\":\"rocket_id\",\"type\":\"string\"},{\"name\":\"timestamp\",\"type\":\"string\"},{\"name\":\"altitude_km\",\"type\":\"double\"},{\"name\":\"velocity_kmh\",\"type\":\"double\"},{\"name\":\"engine_temp_c\",\"type\":\"double\"},{\"name\":\"fuel_level_percent\",\"type\":\"double\"},{\"name\":\"battery_voltage_v\",\"type\":\"double\"},{\"name\":\"status\",\"type\":\"string\"}]}",
+    "schema.keyfield": "rocket_id",
+
+    "rocket_id": "#{regexify '[A-Z]{2}-[0-9]{3}'}",
+    "timestamp": "#{date.past '5','SECONDS'}",
+    "altitude_km": "#{number.numberBetween '0','120'}",
+    "velocity_kmh": "#{number.numberBetween '0','28000'}",
+    "engine_temp_c": "#{number.numberBetween '200','1200'}",
+    "fuel_level_percent": "#{number.numberBetween '0','100'}",
+    "battery_voltage_v": "#{number.numberBetween '24','30'}",
+    "status": "#{regexify '(PREFLIGHT|FLIGHT|LANDING|LANDED|ABORT)'}",
+
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",
+
     "max.interval": 1000,
     "iterations": -1
   }
