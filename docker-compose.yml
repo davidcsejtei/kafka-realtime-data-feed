@@ -6,6 +6,8 @@ services:
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - flink-network
 
   kafka:
     image: confluentinc/cp-kafka:7.5.3
@@ -14,20 +16,20 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - '9092:9092' # Lokál gépről érkező kapcsolat
-      - '29092:29092' # Konténeren belüli kapcsolat
+      - '9092:9092'
+      - '29092:29092'
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-
       KAFKA_LISTENERS: PLAINTEXT_INTERNAL://0.0.0.0:29092,PLAINTEXT_EXTERNAL://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://kafka:29092,PLAINTEXT_EXTERNAL://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
-
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: 'true'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - flink-network
 
   connect:
     build:
@@ -43,26 +45,23 @@ services:
       CONNECT_BOOTSTRAP_SERVERS: kafka:29092
       CONNECT_REST_PORT: 8083
       CONNECT_GROUP_ID: 'datagen-group'
-
       CONNECT_CONFIG_STORAGE_TOPIC: 'connect-configs'
       CONNECT_OFFSET_STORAGE_TOPIC: 'connect-offsets'
       CONNECT_STATUS_STORAGE_TOPIC: 'connect-statuses'
-
       CONNECT_KEY_CONVERTER: 'org.apache.kafka.connect.storage.StringConverter'
       CONNECT_VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
       CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
-
       CONNECT_LOG4J_ROOT_LOGLEVEL: 'INFO'
       CONNECT_PLUGIN_PATH: '/usr/share/java,/usr/share/confluent-hub-components'
-
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
-
       CONNECT_OFFSET_STORAGE_PARTITIONS: 1
       CONNECT_CONFIG_STORAGE_PARTITIONS: 1
       CONNECT_STATUS_STORAGE_PARTITIONS: 1
+    networks:
+      - flink-network
 
   kafdrop:
     image: obsidiandynamics/kafdrop
@@ -74,6 +73,8 @@ services:
       - '9000:9000'
     environment:
       KAFKA_BROKER_CONNECT: kafka:29092
+    networks:
+      - flink-network
 
   connector-init:
     image: alpine:latest
@@ -98,3 +99,9 @@ services:
           -H 'Content-Type: application/json' \
           -d @datagen-rocket.json;
         echo 'Connector registered.';
+    networks:
+      - flink-network
+
+networks:
+  flink-network:
+    external: true
