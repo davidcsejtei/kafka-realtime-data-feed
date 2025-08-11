@@ -13,7 +13,7 @@ class RocketTelemetrySimulator:
         )
         
         # Rocket physical parameters
-        self.rocket_id = "Falcon-9-001"
+        self.rocket_id = "Falcon-9-TEST"
         self.dry_mass = 22200  # kg (empty rocket mass)
         self.fuel_mass = 411000  # kg (initial fuel mass)
         self.current_fuel = self.fuel_mass
@@ -31,14 +31,18 @@ class RocketTelemetrySimulator:
         self.mission_time = 0  # seconds
         self.stage = 1  # current stage
         
-        # Anomaly system
+        # Anomaly system - ONE CRITICAL ANOMALY DURING FLIGHT
         self.anomalies = []
         self.anomaly_active = False
+        self.anomaly_triggered = False  # Track if we've already triggered the anomaly
         self.engine_efficiency = 1.0  # 1.0 = 100% efficiency
         self.fuel_leak_rate = 0  # additional fuel loss per second
         self.guidance_error = 0  # degrees of guidance system error
         self.sensor_noise = 1.0  # multiplier for sensor noise
         self.engine_throttle = 1.0  # engine throttle setting
+        
+        # Pre-determine when the anomaly will occur (random time between 30-90 seconds)
+        self.anomaly_trigger_time = random.uniform(30, 90)
         
         # Constants
         self.gravity = 9.81  # m/s^2
@@ -46,7 +50,8 @@ class RocketTelemetrySimulator:
         self.drag_coefficient = 0.3
         self.cross_sectional_area = 10.5  # m^2
         
-        print(f"🚀 Rocket {self.rocket_id} initialized for liftoff simulation")
+        print(f"🚀 Rocket {self.rocket_id} initialized for SINGLE CRITICAL ANOMALY testing")
+        print(f"⚠️  WARNING: One critical anomaly will occur at T+{self.anomaly_trigger_time:.1f}s")
         print(f"Initial fuel: {self.fuel_mass:,.0f} kg")
         print(f"Dry mass: {self.dry_mass:,.0f} kg")
         
@@ -62,88 +67,80 @@ class RocketTelemetrySimulator:
         return 0.5 * air_density * self.velocity**2 * self.drag_coefficient * self.cross_sectional_area
     
     def check_for_anomalies(self):
-        """Randomly trigger rocket anomalies"""
-        # Only check for new anomalies if none are currently active
-        if not self.anomaly_active and random.random() < 0.008:  # 0.8% chance per second
-            anomaly_type = random.choice([
+        """Trigger exactly one critical anomaly at predetermined time"""
+        # Only trigger if we haven't already and we've reached the trigger time
+        if not self.anomaly_triggered and self.mission_time >= self.anomaly_trigger_time:
+            # Choose a critical anomaly type
+            critical_anomaly_types = [
                 "engine_underperformance",
                 "fuel_leak", 
                 "guidance_failure",
-                "sensor_malfunction",
                 "engine_shutdown",
                 "attitude_control_loss",
-                "thermal_anomaly",
-                "structural_vibration"
-            ])
+                "thermal_anomaly"
+            ]
             
+            anomaly_type = random.choice(critical_anomaly_types)
             self.trigger_anomaly(anomaly_type)
+            self.anomaly_triggered = True
     
     def trigger_anomaly(self, anomaly_type):
-        """Trigger a specific anomaly"""
+        """Trigger a specific critical anomaly"""
         self.anomaly_active = True
-        duration = random.uniform(5, 30)  # Anomaly lasts 5-30 seconds
+        # Longer duration for the single critical anomaly - 20-45 seconds
+        duration = random.uniform(20, 45)
         
         anomaly_data = {
             "type": anomaly_type,
             "start_time": self.mission_time,
             "duration": duration,
-            "severity": random.choice(["minor", "moderate", "critical"])
+            "severity": "critical"  # Always critical for this test
         }
         
         if anomaly_type == "engine_underperformance":
-            self.engine_efficiency = random.uniform(0.4, 0.8)
-            anomaly_data["description"] = f"Engine performing at {self.engine_efficiency*100:.0f}% efficiency"
+            # Critical engine performance degradation
+            self.engine_efficiency = random.uniform(0.15, 0.4)  # Very low efficiency
+            anomaly_data["description"] = f"CRITICAL: Engine performing at {self.engine_efficiency*100:.0f}% efficiency"
             
         elif anomaly_type == "fuel_leak":
-            self.fuel_leak_rate = random.uniform(50, 200)  # kg/s additional loss
-            anomaly_data["description"] = f"Fuel leak detected: {self.fuel_leak_rate:.0f} kg/s additional consumption"
+            # Major fuel leak
+            self.fuel_leak_rate = random.uniform(300, 600)  # Severe fuel loss
+            anomaly_data["description"] = f"CRITICAL: Major fuel leak - {self.fuel_leak_rate:.0f} kg/s additional consumption"
             
         elif anomaly_type == "guidance_failure":
-            self.guidance_error = random.uniform(2, 8)
-            anomaly_data["description"] = f"Guidance system error: ±{self.guidance_error:.1f}° deviation"
-            
-        elif anomaly_type == "sensor_malfunction":
-            self.sensor_noise = random.uniform(1.5, 3.0)
-            anomaly_data["description"] = f"Sensor readings showing {self.sensor_noise*100-100:.0f}% increased noise"
+            # Severe guidance system failure
+            self.guidance_error = random.uniform(8, 15)  # Major deviation
+            anomaly_data["description"] = f"CRITICAL: Guidance system failure - ±{self.guidance_error:.1f}° deviation"
             
         elif anomaly_type == "engine_shutdown":
             self.engine_throttle = 0.0
-            duration = random.uniform(3, 8)  # Shorter duration for engine shutdown
+            duration = random.uniform(15, 25)  # Longer shutdown for critical scenario
             anomaly_data["duration"] = duration
-            anomaly_data["description"] = "Emergency engine shutdown activated"
-            anomaly_data["severity"] = "critical"
+            anomaly_data["description"] = "CRITICAL: Complete engine shutdown"
             
         elif anomaly_type == "attitude_control_loss":
-            anomaly_data["description"] = "Attitude control system malfunction - erratic movements"
+            anomaly_data["description"] = "CRITICAL: Complete attitude control system failure"
             
         elif anomaly_type == "thermal_anomaly":
-            anomaly_data["description"] = "Thermal protection system anomaly detected"
-            
-        elif anomaly_type == "structural_vibration":
-            anomaly_data["description"] = "Abnormal structural vibrations detected"
+            anomaly_data["description"] = "CRITICAL: Thermal protection system failure - overheating"
         
         self.anomalies.append(anomaly_data)
     
     def update_anomalies(self):
         """Update active anomalies and resolve expired ones"""
         active_anomalies = []
-        resolved_any = False
         
         for anomaly in self.anomalies:
             if self.mission_time - anomaly["start_time"] < anomaly["duration"]:
                 active_anomalies.append(anomaly)
             else:
-                # Anomaly resolved - no console output
-                
-                # Reset parameters based on anomaly type
+                # Anomaly resolved - reset parameters
                 if anomaly["type"] == "engine_underperformance":
                     self.engine_efficiency = 1.0
                 elif anomaly["type"] == "fuel_leak":
                     self.fuel_leak_rate = 0
                 elif anomaly["type"] == "guidance_failure":
                     self.guidance_error = 0
-                elif anomaly["type"] == "sensor_malfunction":
-                    self.sensor_noise = 1.0
                 elif anomaly["type"] == "engine_shutdown":
                     self.engine_throttle = 1.0
         
@@ -152,7 +149,7 @@ class RocketTelemetrySimulator:
     
     def update_physics(self, dt=1.0):
         """Update rocket physics for next time step"""
-        # Check for new anomalies
+        # Check for new anomalies every second
         self.check_for_anomalies()
         self.update_anomalies()
         
@@ -194,11 +191,11 @@ class RocketTelemetrySimulator:
         base_yaw_change = random.uniform(-0.5, 0.5) if self.mission_time > 20 else 0
         base_roll_change = random.uniform(-0.2, 0.2)
         
-        # Apply attitude control anomalies
+        # Apply attitude control anomalies - CRITICAL SEVERITY
         attitude_multiplier = 1.0
         for anomaly in self.anomalies:
             if anomaly["type"] == "attitude_control_loss":
-                attitude_multiplier = 5.0  # Much more erratic movement
+                attitude_multiplier = 12.0  # Extremely erratic for critical failure
         
         self.yaw += base_yaw_change * attitude_multiplier
         self.roll += base_roll_change * attitude_multiplier
@@ -220,10 +217,10 @@ class RocketTelemetrySimulator:
             variation = random.uniform(-50, 50)
             base_temp += variation
         
-        # Apply thermal anomaly effects
+        # Apply thermal anomaly effects - CRITICAL SEVERITY
         for anomaly in self.anomalies:
             if anomaly["type"] == "thermal_anomaly":
-                base_temp += random.uniform(200, 800)  # Dangerous temperature spike
+                base_temp += random.uniform(800, 1800)  # Extreme overheating
         
         return base_temp
     
@@ -243,18 +240,15 @@ class RocketTelemetrySimulator:
     
     def apply_sensor_noise(self, value, noise_factor=1.0):
         """Apply sensor noise to readings"""
-        noise = random.uniform(-0.02, 0.02) * noise_factor * self.sensor_noise
+        # Base noise level
+        noise = random.uniform(-0.02, 0.02) * noise_factor
         return value * (1 + noise)
     
     def generate_telemetry(self):
         """Generate realistic telemetry data with potential anomalies"""
         fuel_percentage = (self.current_fuel / self.fuel_mass) * 100
         
-        # Add vibration effects to sensor readings
-        vibration_factor = 1.0
-        for anomaly in self.anomalies:
-            if anomaly["type"] == "structural_vibration":
-                vibration_factor = 3.0
+        # No structural vibration in this version - only critical anomalies
         
         telemetry = {
             "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
@@ -264,9 +258,9 @@ class RocketTelemetrySimulator:
             "status": self.get_rocket_status(),
             
             # Position and motion (with sensor noise)
-            "altitude": round(self.apply_sensor_noise(self.altitude, vibration_factor), 1),
-            "velocity": round(self.apply_sensor_noise(self.velocity, vibration_factor), 1),
-            "acceleration": round(self.apply_sensor_noise(self.acceleration, vibration_factor), 2),
+            "altitude": round(self.apply_sensor_noise(self.altitude), 1),
+            "velocity": round(self.apply_sensor_noise(self.velocity), 1),
+            "acceleration": round(self.apply_sensor_noise(self.acceleration), 2),
             "machNumber": round(self.velocity / 343, 2),
             
             # Attitude (with potential guidance errors and noise)
@@ -292,7 +286,6 @@ class RocketTelemetrySimulator:
             "apogee": round(self.altitude + (self.velocity**2) / (2 * self.gravity), 0) if self.velocity > 0 else self.altitude,
             
             # System health indicators (for anomaly detection)
-            "sensorNoise": round(self.sensor_noise, 2),
             "guidanceError": round(self.guidance_error, 2),
             "fuelLeakRate": round(self.fuel_leak_rate, 1)
         }
@@ -302,7 +295,8 @@ class RocketTelemetrySimulator:
     def run_simulation(self):
         """Run the telemetry simulation"""
         try:
-            print("\n🚀 Starting rocket liftoff simulation...")
+            print("\n🚀 Starting SINGLE CRITICAL ANOMALY rocket simulation...")
+            print(f"⚠️  One critical anomaly will occur at T+{self.anomaly_trigger_time:.1f}s")
             print("Press Ctrl+C to stop\n")
             
             while True:
@@ -313,7 +307,7 @@ class RocketTelemetrySimulator:
                 telemetry = self.generate_telemetry()
                 self.producer.send("rocket-telemetry", value=telemetry)
                 
-                # Console output with key metrics
+                # Console output with key metrics + anomaly indicator
                 status_emoji = {
                     "ignition": "🔥",
                     "liftoff": "🚀",
@@ -322,11 +316,13 @@ class RocketTelemetrySimulator:
                     "descent": "⬇️"
                 }.get(telemetry["status"], "📡")
                 
+                anomaly_indicator = f" | ⚠️" if len(self.anomalies) > 0 else ""
+                
                 print(f"{status_emoji} T+{telemetry['missionTime']:>6.1f}s | "
                       f"Alt: {telemetry['altitude']:>8.0f}m | "
                       f"Vel: {telemetry['velocity']:>6.0f}m/s | "
                       f"Fuel: {telemetry['fuelRemaining']:>5.1f}% | "
-                      f"Status: {telemetry['status']}")
+                      f"Status: {telemetry['status']}{anomaly_indicator}")
                 
                 # Check if we should stop simulation AFTER sending telemetry and displaying it
                 if self.altitude > 100000 or (self.altitude <= 0 and self.mission_time > 10):
