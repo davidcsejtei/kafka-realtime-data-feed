@@ -2,11 +2,12 @@ import json
 import time
 import math
 import random
+import argparse
 from datetime import datetime, timezone
 from kafka import KafkaProducer
 
 class RocketTelemetrySimulator:
-    def __init__(self):
+    def __init__(self, anomaly_probability=0.05):
         self.producer = KafkaProducer(
             bootstrap_servers=["localhost:9092"],
             value_serializer=lambda v: json.dumps(v).encode("utf-8")
@@ -34,6 +35,7 @@ class RocketTelemetrySimulator:
         # Anomaly system
         self.anomalies = []
         self.anomaly_active = False
+        self.anomaly_probability = anomaly_probability
         self.engine_efficiency = 1.0  # 1.0 = 100% efficiency
         self.fuel_leak_rate = 0  # additional fuel loss per second
         self.guidance_error = 0  # degrees of guidance system error
@@ -64,7 +66,7 @@ class RocketTelemetrySimulator:
     def check_for_anomalies(self):
         """Randomly trigger rocket anomalies"""
         # Only check for new anomalies if none are currently active
-        if not self.anomaly_active and random.random() < 0.008:  # 0.8% chance per second
+        if not self.anomaly_active and random.random() < self.anomaly_probability:
             anomaly_type = random.choice([
                 "engine_underperformance",
                 "fuel_leak", 
@@ -123,17 +125,18 @@ class RocketTelemetrySimulator:
             anomaly_data["description"] = "Abnormal structural vibrations detected"
         
         self.anomalies.append(anomaly_data)
+        print(f"🚨 ANOMALY: {anomaly_data['description']} (Duration: {duration:.1f}s)")
     
     def update_anomalies(self):
         """Update active anomalies and resolve expired ones"""
         active_anomalies = []
-        resolved_any = False
         
         for anomaly in self.anomalies:
             if self.mission_time - anomaly["start_time"] < anomaly["duration"]:
                 active_anomalies.append(anomaly)
             else:
-                # Anomaly resolved - no console output
+                # Anomaly resolved
+                print(f"✅ RESOLVED: {anomaly['type']} anomaly resolved")
                 
                 # Reset parameters based on anomaly type
                 if anomaly["type"] == "engine_underperformance":
@@ -345,5 +348,18 @@ class RocketTelemetrySimulator:
             self.producer.close()
 
 if __name__ == "__main__":
-    simulator = RocketTelemetrySimulator()
+    parser = argparse.ArgumentParser(description='Rocket telemetry simulator with anomaly generation')
+    parser.add_argument('--anomaly-probability', type=float, default=0.05, 
+                       help='Probability of anomaly occurrence per second (0.0-1.0, default: 0.05)')
+    
+    args = parser.parse_args()
+    
+    # Validate probability range
+    if args.anomaly_probability < 0.0 or args.anomaly_probability > 1.0:
+        print("Error: Anomaly probability must be between 0.0 and 1.0")
+        exit(1)
+    
+    print(f"🎛️ Anomaly probability set to {args.anomaly_probability*100:.1f}% per second")
+    
+    simulator = RocketTelemetrySimulator(anomaly_probability=args.anomaly_probability)
     simulator.run_simulation()
